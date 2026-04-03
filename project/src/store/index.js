@@ -60,7 +60,7 @@ export default createStore({
     return {
       resources: [],      
       loading: false,     
-      bookings: []        
+      bookings: []
     }
   },
   mutations: {
@@ -69,10 +69,21 @@ export default createStore({
     },
     SET_LOADING(state, status) {
       state.loading = status
+    },
+
+    ADD_BOOKING(state, booking) {
+      state.bookings.push(booking)
+
+      localStorage.setItem('bookings', JSON.stringify(state.bookings))
+    },
+    LOAD_BOOKINGS_FROM_STORAGE(state) {
+      const saved = localStorage.getItem('bookings')
+      if (saved) {
+        state.bookings = JSON.parse(saved)
+      }
     }
   },
   actions: {
-    
     loadResources({ commit }) {
       commit('SET_LOADING', true)
       
@@ -80,10 +91,22 @@ export default createStore({
         commit('SET_RESOURCES', mockResources)
         commit('SET_LOADING', false)
       }, 500)
+    },
+
+    addBooking({ commit }, booking) {
+      commit('ADD_BOOKING', booking)
+    },
+    loadBookingsFromStorage({ commit }) {
+      commit('LOAD_BOOKINGS_FROM_STORAGE')
     }
   },
   getters: {
     allResources: state => state.resources,
-    isLoading: state => state.loading
+    isLoading: state => state.loading,
+
+    allBookings: state => state.bookings,
+    bookingsByResource: state => (resourceId) => {
+      return state.bookings.filter(b => b.resourceId === resourceId)
+    }
   }
 })
