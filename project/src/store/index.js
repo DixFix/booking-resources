@@ -60,7 +60,7 @@ export default createStore({
     return {
       resources: [],      
       loading: false,     
-      bookings: []
+      bookings: []        
     }
   },
   mutations: {
@@ -73,7 +73,6 @@ export default createStore({
 
     ADD_BOOKING(state, booking) {
       state.bookings.push(booking)
-
       localStorage.setItem('bookings', JSON.stringify(state.bookings))
     },
     LOAD_BOOKINGS_FROM_STORAGE(state) {
@@ -81,16 +80,46 @@ export default createStore({
       if (saved) {
         state.bookings = JSON.parse(saved)
       }
+    },
+
+    ADD_RESOURCE(state, resource) {
+      const newId = Math.max(...state.resources.map(r => r.id), 0) + 1
+      state.resources.push({ ...resource, id: newId })
+      localStorage.setItem('resources', JSON.stringify(state.resources))
+    },
+    UPDATE_RESOURCE(state, updatedResource) {
+      const index = state.resources.findIndex(r => r.id === updatedResource.id)
+      if (index !== -1) {
+        state.resources[index] = updatedResource
+        localStorage.setItem('resources', JSON.stringify(state.resources))
+      }
+    },
+    DELETE_RESOURCE(state, resourceId) {
+      state.resources = state.resources.filter(r => r.id !== resourceId)
+      localStorage.setItem('resources', JSON.stringify(state.resources))
+    },
+    LOAD_RESOURCES_FROM_STORAGE(state) {
+      const saved = localStorage.getItem('resources')
+      if (saved && JSON.parse(saved).length > 0) {
+        state.resources = JSON.parse(saved)
+      }
     }
   },
   actions: {
-    loadResources({ commit }) {
-      commit('SET_LOADING', true)
+    loadResources({ commit, dispatch }) {
+      dispatch('loadResourcesFromStorage')
       
-      setTimeout(() => {
-        commit('SET_RESOURCES', mockResources)
+      const saved = localStorage.getItem('resources')
+      if (!saved || JSON.parse(saved).length === 0) {
+        commit('SET_LOADING', true)
+        setTimeout(() => {
+          commit('SET_RESOURCES', mockResources)
+          commit('SET_LOADING', false)
+          localStorage.setItem('resources', JSON.stringify(mockResources))
+        }, 500)
+      } else {
         commit('SET_LOADING', false)
-      }, 500)
+      }
     },
 
     addBooking({ commit }, booking) {
@@ -98,6 +127,19 @@ export default createStore({
     },
     loadBookingsFromStorage({ commit }) {
       commit('LOAD_BOOKINGS_FROM_STORAGE')
+    },
+
+    addResource({ commit }, resource) {
+      commit('ADD_RESOURCE', resource)
+    },
+    updateResource({ commit }, resource) {
+      commit('UPDATE_RESOURCE', resource)
+    },
+    deleteResource({ commit }, resourceId) {
+      commit('DELETE_RESOURCE', resourceId)
+    },
+    loadResourcesFromStorage({ commit }) {
+      commit('LOAD_RESOURCES_FROM_STORAGE')
     }
   },
   getters: {
@@ -107,6 +149,21 @@ export default createStore({
     allBookings: state => state.bookings,
     bookingsByResource: state => (resourceId) => {
       return state.bookings.filter(b => b.resourceId === resourceId)
+    },
+
+    isResourceAvailable: (state) => (resourceId, date, startTime, endTime, excludeBookingId = null) => {
+      const conflicting = state.bookings.find(booking => {
+        if (excludeBookingId && booking.id === excludeBookingId) return false
+        if (booking.resourceId !== resourceId) return false
+        if (booking.date !== date) return false
+        
+        const bookingStart = booking.startTime
+        const bookingEnd = booking.endTime
+        
+        return (startTime < bookingEnd && endTime > bookingStart)
+      })
+      
+      return !conflicting
     }
   }
 })

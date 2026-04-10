@@ -18,7 +18,10 @@
 export default {
   name: 'App',
   created() {
+
     this.$store.dispatch('loadBookingsFromStorage')
+
+    this.$store.dispatch('loadResources')
   }
 }
 </script>

@@ -1,6 +1,6 @@
 <template>
   <v-container>
-    
+
     <v-row v-if="loading">
       <v-col class="text-center">
         <v-progress-circular indeterminate color="primary"></v-progress-circular>
@@ -8,7 +8,7 @@
       </v-col>
     </v-row>
 
-    
+
     <v-row v-else-if="!resource">
       <v-col>
         <v-alert type="error" variant="tonal">
@@ -18,9 +18,9 @@
       </v-col>
     </v-row>
 
-    
+
     <v-row v-else>
-      
+
       <v-col cols="12" md="5">
         <v-img
           :src="resource.image"
@@ -30,7 +30,7 @@
           class="mb-4"
         ></v-img>
         
-        
+
         <v-card v-if="resource.equipment && resource.equipment.length" variant="outlined">
           <v-card-title class="text-subtitle-1">
             <v-icon size="small" class="mr-2">mdi-wrench</v-icon>
@@ -51,7 +51,7 @@
         </v-card>
       </v-col>
 
-      
+
       <v-col cols="12" md="7">
         <h1 class="text-h4 mb-2">{{ resource.name }}</h1>
         
@@ -59,10 +59,10 @@
           {{ resource.typeName }}
         </v-chip>
 
-        
+
         <p class="text-body-1 mb-4">{{ resource.description }}</p>
 
-        
+
         <v-list class="mb-4" bg-color="transparent">
           <v-list-item v-if="resource.capacity">
             <template v-slot:prepend>
@@ -88,7 +88,7 @@
           </v-list-item>
         </v-list>
 
-        
+
         <v-btn
           color="success"
           size="large"
@@ -100,7 +100,7 @@
       </v-col>
     </v-row>
 
-    
+
     <v-dialog v-model="showBookingDialog" max-width="600">
       <v-card>
         <v-card-title class="text-h6">
@@ -178,7 +178,7 @@
       </v-card>
     </v-dialog>
 
-    
+
     <v-snackbar
       v-model="showSuccessNotification"
       timeout="3000"
@@ -192,11 +192,26 @@
         </v-btn>
       </template>
     </v-snackbar>
+
+
+    <v-snackbar
+      v-model="showConflictError"
+      timeout="4000"
+      color="error"
+    >
+      <v-icon class="mr-2">mdi-alert-circle</v-icon>
+      Извините, этот ресурс уже забронирован на выбранное время. Пожалуйста, выберите другое время.
+      <template v-slot:actions>
+        <v-btn color="white" variant="text" @click="showConflictError = false">
+          Закрыть
+        </v-btn>
+      </template>
+    </v-snackbar>
   </v-container>
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
+import { mapGetters } from 'vuex'
 
 export default {
   name: 'ResourceView',
@@ -206,6 +221,7 @@ export default {
       loading: true,
       showBookingDialog: false,
       showSuccessNotification: false,
+      showConflictError: false,
       submitting: false,
       booking: {
         resourceId: null,
@@ -224,8 +240,6 @@ export default {
     ...mapGetters(['allResources'])
   },
   methods: {
-    ...mapActions(['loadResources', 'addBooking']),
-    
     loadResource() {
       const id = parseInt(this.$route.params.id)
       this.resource = this.allResources.find(r => r.id === id) || null
@@ -252,7 +266,7 @@ export default {
     },
     
     submitBooking() {
-      
+
       if (!this.booking.clientName || !this.booking.clientEmail || 
           !this.booking.phone || !this.booking.date || 
           !this.booking.startTime || !this.booking.endTime) {
@@ -260,11 +274,30 @@ export default {
         return
       }
       
+
+      if (this.booking.startTime >= this.booking.endTime) {
+        alert('Время начала должно быть раньше времени окончания')
+        return
+      }
+      
+
+      const isAvailable = this.$store.getters.isResourceAvailable(
+        this.resource.id,
+        this.booking.date,
+        this.booking.startTime,
+        this.booking.endTime
+      )
+      
+      if (!isAvailable) {
+        this.showConflictError = true
+        return
+      }
+      
       this.submitting = true
       
-      
+
       const newBooking = {
-        id: Date.now(), 
+        id: Date.now(),
         resourceId: this.resource.id,
         resourceName: this.resource.name,
         clientName: this.booking.clientName,
@@ -277,15 +310,14 @@ export default {
         createdAt: new Date().toISOString()
       }
       
-      
-      this.addBooking(newBooking)
-      
+
+      this.$store.dispatch('addBooking', newBooking)
       
       this.submitting = false
       this.showBookingDialog = false
       this.showSuccessNotification = true
       
-      
+
       this.resetBookingForm()
     }
   },
